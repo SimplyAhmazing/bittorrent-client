@@ -10,7 +10,23 @@ def decode(data_str):
             return int(match.group(1)), data_str[match_end:]
 
         elif data_str.startswith('l'):
-            pass
+            res = []
+            remainder = data_str[1:]
+            while not remainder.startswith('e'):
+                elem, remainder = _decode(remainder)
+                res.append(elem)
+            return res, remainder[1:]
+
+        elif data_str.startswith('d'):
+            vals = []
+            remainder = data_str[1:]
+            while not remainder.startswith('e'):
+                elem, remainder = _decode(remainder)
+                vals.append(elem)
+
+            res = {key: value for key, value in zip(vals[::2], vals[1::2])}
+
+            return res, remainder[1:]
 
         elif any(str(i) for i in string.digits):  # Match integers
             match = re.match("(\\d+):", data_str)
@@ -21,8 +37,11 @@ def decode(data_str):
             end = match_end + str_len
             return data_str[start:end], data_str[end:]
 
+        else:
+            raise Exception("Unable to decode: {}".format(data_str))
+
 
     res, extra = _decode(data_str)
     if extra:
-        raise Exception
+        raise ValueError("Malformed Input Recieved")
     return res
