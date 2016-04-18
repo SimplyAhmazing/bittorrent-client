@@ -13,6 +13,11 @@ class BencodeTestCase(unittest.TestCase):
         self.assertEqual(decode('4:spam'), "spam")
         self.assertEqual(decode('0:'), "")
 
+    def test_decode_list(self):
+        self.assertListEqual(decode('l4:spam4:eggse'), ["spam", "eggs"])
+        self.assertListEqual(decode('le'), [])
+
+
 
 if __name__ == '__main__':
     unittest.main()

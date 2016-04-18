@@ -15,7 +15,6 @@ def decode(data_str):
         elif any(str(i) for i in string.digits):  # Match integers
             match = re.match("(\\d+):", data_str)
             str_len = int(match.group(1))
-            print(match.span())
             _, match_end = match.span()
 
             start = match_end
