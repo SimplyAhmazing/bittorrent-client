@@ -2,25 +2,25 @@ import re
 import string
 
 
-def decode(data_str):
-    def _decode(data_str):
-        if data_str.startswith('i'):  # Match integers
-            match = re.match("i(-?\\d+)e", data_str)
+def decode(data):
+    def _decode(data):
+        if data.startswith(b'i'):  # Match integers
+            match = re.match(b"i(-?\\d+)e", data)
             match_start, match_end = match.span()
-            return int(match.group(1)), data_str[match_end:]
+            return int(match.group(1)), data[match_end:]
 
-        elif data_str.startswith('l'):
+        elif data.startswith(b'l'):  # Match list
             res = []
-            remainder = data_str[1:]
-            while not remainder.startswith('e'):
+            remainder = data[1:]
+            while not remainder.startswith(b'e'):
                 elem, remainder = _decode(remainder)
                 res.append(elem)
             return res, remainder[1:]
 
-        elif data_str.startswith('d'):
+        elif data.startswith(b'd'):  # Match dict
             vals = []
-            remainder = data_str[1:]
-            while not remainder.startswith('e'):
+            remainder = data[1:]
+            while not remainder.startswith(b'e'):
                 elem, remainder = _decode(remainder)
                 vals.append(elem)
 
@@ -28,20 +28,20 @@ def decode(data_str):
 
             return res, remainder[1:]
 
-        elif any(str(i) for i in string.digits):  # Match integers
-            match = re.match("(\\d+):", data_str)
+        elif any(str(i) for i in string.digits):  # Match strings
+            match = re.match(b"(\\d+):", data)
             str_len = int(match.group(1))
             _, match_end = match.span()
 
             start = match_end
             end = match_end + str_len
-            return data_str[start:end], data_str[end:]
+            return data[start:end], data[end:]
 
         else:
-            raise Exception("Unable to decode: {}".format(data_str))
+            raise Exception("Unable to decode: {}".format(data))
 
 
-    res, extra = _decode(data_str)
+    res, extra = _decode(data)
     if extra:
         raise ValueError("Malformed Input Recieved")
     return res
