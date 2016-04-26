@@ -13,6 +13,7 @@ class PeersGetter(object):
             self.torrent.get_announce_url(),
             params=self.torrent.get_tracker_request_params()
         )
+        print(decode(resp.content))
         return decode(resp.content)
 
 

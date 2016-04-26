@@ -32,12 +32,15 @@ class Peer(object):
         return handshake[28:48] == resp[28:48]
 
 
-    def connect(self, handshake):
+    def connect(self):
+        handshake = self.torrent.get_handshake()
+
         sock = socket.socket()
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.setblocking(False)
 
         try:
+            print('peer info is ', self.peer_info)
             sock.connect(self.peer_info)
             sock.send(handshake)
         except OSError:
