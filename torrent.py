@@ -17,12 +17,16 @@ class Torrent(object):
 
         print(self.torrent_file_dict)
 
-        self.piece_length = self.torrent_file_dict.get(b'info', {}).get(b'piece length', 0)
+        self.piece_length = int(
+            self.torrent_file_dict.get(b'info', {}).get(b'piece length', 0)
+        )
         print(self.piece_length)
-        self.num_pieces = self.get_download_length() / self.piece_length
+        self.num_pieces = int(self.get_download_length() / self.piece_length)
         self.block_length = 2**16
         self.last_block_length = self.piece_length % self.block_length
 
+    def is_download_finished(self):
+        return False
 
     def get_announce_url(self):
         return self.torrent_file_dict[b'announce'].decode('utf-8')

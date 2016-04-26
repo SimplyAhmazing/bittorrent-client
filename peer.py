@@ -22,7 +22,7 @@ class Peer(object):
 
         self.msg_queue = []
 
-        self.pieces = BitArray(0 * self.torrent.num_pieces)
+        self.pieces = BitArray(bin='0' * self.torrent.num_pieces)
 
 
     def is_handshake_valid(self, handshake : bytes, resp : bytes):
