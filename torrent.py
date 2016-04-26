@@ -13,11 +13,21 @@ class Torrent(object):
 
     def __init__(self, torrent_file_path):
         self.torrent_file_path = torrent_file_path
+        self.torrent_file_dict = self.parse_file()
 
-        self.parse_file()
+        print(self.torrent_file_dict)
+
+        self.piece_length = self.torrent_file_dict.get(b'info', {}).get(b'piece length', 0)
+        print(self.piece_length)
+        self.num_pieces = self.get_download_length() / self.piece_length
+        self.block_length = 2**16
+        self.last_block_length = self.piece_length % self.block_length
 
 
-    def get_file_length(self):
+    def get_announce_url(self):
+        return self.torrent_file_dict[b'announce'].decode('utf-8')
+
+    def get_download_length(self):
         info = self.torrent_file_dict[b'info']
 
         if b'length' in info:
@@ -25,11 +35,17 @@ class Torrent(object):
         else:
             return sum([int(file[b'length']) for file in info[b'files']])
 
-    def get_announce_url(self):
-        announce_url = self.torrent_file_dict[b'announce'].decode('utf-8')
+    def get_handshake(self):
+        return b''.join([
+            chr(19).encode(),
+            b'BitTorrent protocol',
+            (chr(0) * 8).encode(),
+            self.get_info_hash(),
+            self.get_peer_id().encode()
+        ])
 
     def get_peer_id(self):
-        info = encode(res[b'info'])
+        info = encode(self.torrent_file_dict[b'info'])
         peer_id = 'SA' + ''.join(
             random.choice(string.ascii_lowercase + string.digits)
             for i in range(18)
@@ -50,11 +66,13 @@ class Torrent(object):
             'port': 59696,
             'uploaded': 0,
             'downloaded': 0,
-            'left': self.get_file_length()
+            'left': self.get_download_length()
         }
 
         return params
 
     def parse_file(self):
-        data = open(self.torrent_file_path, 'rb').read()
-        self.torrent_file_dict = decode(data)
+        data = None
+        with open(self.torrent_file_path, 'rb') as f:
+            data = f.read()
+        return decode(data)
