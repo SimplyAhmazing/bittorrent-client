@@ -18,9 +18,15 @@ def main():
     writers = []
     readers = []
 
+    peers_connected_to_count = 0
+
     # Build connected peers
     for peer_info in peers_info:
-        peer = Peer(torrent, peers_info)
+        if peers_connected_to_count > 3:
+            break
+        peers_connected_to_count += 1
+
+        peer = Peer(torrent, peer_info=peer_info)
         peer.connect()
 
         if peer.is_connected:
