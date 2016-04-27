@@ -53,15 +53,5 @@ def main():
             readers.remove(peer)
             writers.remove(peer)
 
-
-
-    pp(sorted(peers_info))
-
-
-
 if __name__ == '__main__':
     main()
-
-# print(resp.url)
-# print()
-# print(resp.status_code)

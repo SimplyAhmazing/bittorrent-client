@@ -35,14 +35,7 @@ class MessageParser(object):
             return Message(name='keep_alive', length=0, id=-1, payload=b'')
 
         msg_length = struct.unpack('>I', bytestring[0:4])[0]
-        print('seen msg len ', msg_length)
-
-        # Keep Alive message; do nothing
-        if not msg_length:
-            return
-
         msg_id = bytestring[4]
-        print('seen msg id ', msg_id)
         msg_payload = bytestring[5:]
 
         return Message(
