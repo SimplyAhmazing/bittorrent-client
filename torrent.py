@@ -1,8 +1,10 @@
 import hashlib
+import math
 import random
 import string
 
 from bencoder import decode, encode
+from bitstring import BitArray
 
 
 class Torrent(object):
@@ -22,8 +24,24 @@ class Torrent(object):
         )
         print(self.piece_length)
         self.num_pieces = int(self.get_download_length() / self.piece_length)
+        self.last_piece_length = int(self.piece_length % self.num_pieces)
+
         self.block_length = 2**16
-        self.last_block_length = self.piece_length % self.block_length
+        self.last_block_length = int(self.piece_length % self.block_length)
+        self.blocks_per_piece = int(math.ceil(self.piece_length / self.block_length))
+        self.last_block_length = int(self.piece_length % self.block_length)
+
+        self.have_pieces = BitArray(bin='0' * self.num_pieces)
+        self.requested_pieces = BitArray(bin='0' * self.num_pieces)
+
+        self.have_blocks = [
+            BitArray(bin='0' * self.blocks_per_piece)
+            for _ in range(self.num_pieces)
+        ]
+        self.requested_blocks = [
+            BitArray(bin='0' * self.blocks_per_piece)
+            for _ in range(self.num_pieces)
+        ]
 
     def is_download_finished(self):
         return False
@@ -38,6 +56,42 @@ class Torrent(object):
             return int(info[b'length'])
         else:
             return sum([int(file[b'length']) for file in info[b'files']])
+
+    def get_next_request(self, have_pieces):
+        # total_number_of_blocks = self.torrent.
+
+        obtainable_pieces = have_pieces & ~self.requested_pieces
+
+        try:
+            piece_idx = next(
+                idx
+                for idx in range(len(obtainable_pieces))
+                if obtainable_pieces[idx] == True
+            )
+        except StopIteration:
+            return None
+
+        offset = next(
+            idx * self.block_length
+            for idx in range(self.blocks_per_piece)
+            if self.requested_blocks[piece_idx][idx] == False
+        )
+
+        piece_length = (
+            self.last_piece_length
+            if piece_idx == self.num_pieces - 1
+            else self.piece_length
+        )
+
+        request_length = min(self.block_length, piece_length - offset)
+
+        if request_length < 0:
+            print('request length is below 0....')
+            return None
+
+        return piece_idx, offset, request_length
+
+
 
     def get_handshake(self):
         return b''.join([

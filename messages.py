@@ -25,18 +25,18 @@ class MessageParser(object):
     ]
 
     @classmethod
-    def parse(cls, arg):
-        if isinstance(arg, bytes):
-            return cls.create_from_bytestring(arg)
+    def parse(cls, bytestring, msg_length):
 
-    @classmethod
-    def create_from_bytestring(cls, bytestring):
         if bytestring[0:4] == b'\x00\x00\x00\x00':
-            return Message(name='keep_alive', length=0, id=-1, payload=b'')
+            return Message(name='keep_alive', length=msg_length, id=-1, payload=b'')
 
-        msg_length = struct.unpack('>I', bytestring[0:4])[0]
         msg_id = bytestring[4]
         msg_payload = bytestring[5:]
+
+        if msg_id == 255:
+            import pdb; pdb.set_trace()
+        print('msg len {}'.format(msg_length))
+        print('msg id {}'.format(msg_id))
 
         return Message(
             name=cls.MSG_TYPES[msg_id],
@@ -44,3 +44,11 @@ class MessageParser(object):
             id=msg_id,
             payload=msg_payload
         )
+
+    @classmethod
+    def encode_msg(cls, msg_type, payload=b''):
+        if msg_type == 'keep alive':
+            msg = ''
+        else:
+            msg = struct.pack('B', cls.MSG_TYPES.index(msg_type)) + payload
+        return struct.pack('>I', len(msg)) + msg

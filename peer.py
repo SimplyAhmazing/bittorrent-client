@@ -17,12 +17,15 @@ class Peer(object):
         self.is_connected = False
 
         self.state = None
-        self.is_interested = False
-        self.am_interested = False
-        self.am_chocking = True
+        # THEM
+        self.is_chocking = True
         self.is_interested = False
 
-        self.msg_queue = []
+        # ME
+        self.am_interested = False
+        self.am_chocking = True
+
+        self.outbound_messages = []
 
         self.pieces = BitArray(bin='0' * self.torrent.num_pieces)
 
@@ -70,25 +73,81 @@ class Peer(object):
         return self.sock.fileno()
 
 
+
+        pass
+
+
     def read(self):
         self.recieved_data_buffer += self.sock.recv(2**15)
         self.process_read_buffer()
 
     def process_read_buffer(self):
         while self.recieved_data_buffer:
-            message = MessageParser.parse(self.recieved_data_buffer)
-            self.recieved_data_buffer = self.recieved_data_buffer[4 + message.length:]
 
-            print(message)
+            msg_length = struct.unpack('>I', self.recieved_data_buffer[0:4])[0]
+            packet_length = msg_length + 4
 
-            # print('..............................')
-            # print('{} Buffer has: {}'.format(self.peer_info, self.recieved_data_buffer))
-            # msg_len = struct.unpack('>I', self.recieved_data_buffer[:4])[0]
-            # print('Msg recieved of len: ', msg_len)
-            # print('Msg recieved of type: ', self.recieved_data_buffer[4])
-            #
-            # print('Msg recieved of type: ', msg_len)
-            # self.recieved_data_buffer = self.recieved_data_buffer[msg_len:]
+            # If the buffer doesn't contain the entirety of the packet then
+            # break and wait until more data is read from socket
+            if len(self.recieved_data_buffer) < packet_length:
+                break
+
+            message = MessageParser.parse(
+                self.recieved_data_buffer[:packet_length],
+                msg_length
+            )
+
+            self.recieved_data_buffer = self.recieved_data_buffer[packet_length:]
+            print('buffer is: ', self.recieved_data_buffer)
+
+            # Msg ID 0
+            if message.name == 'choke':
+                self.is_chocking = True
+
+            # Msg ID 1
+            if message.name == 'unchoke':
+                self.is_chocking = False
+
+            # Msg ID 2
+            if message.name == 'interested':
+                # TODO: send unchoke message
+                pass
+
+            # Msg ID 3
+            if message.name == 'not_interested':
+                self.is_interested = False
+
+            # Msg ID 4
+            if message.name == 'have':
+                have_piece = struct.unpack('>I', message.payload)[0]
+                self.pieces[have_piece] = True
+                if self.am_interested and not self.am_chocking:
+                    req = self.torrent.get_next_request(self.pieces)
+                    if not req:
+                        return
+
+                    index, begin, length = req
+                    payload = struct.pack('>III', index, begin, length)
+                    req_msg = MessageParser.encode_msg('request', payload)
+                    self.outbound_messages.append(req_msg)
+
+            # Msg ID 5
+            if message.name == 'bitfield':
+                self.pieces = BitArray(bytes=message.payload)
+                self.outbound_messages.append(
+                    MessageParser.encode_msg('interested')
+                )
+
+            # Msg ID 6
+            if message.name == 'request':
+                if not self.am_chocking:
+                    # Find piece from our downloaded torrent and send it back
+                    pass
+
+            # Msg ID 7
+            if message.name == 'piece':
+                index, begin = struct.unpack('>I I', message.payload[:8])
+                print('Got piece, need to write it to file...')
 
     def write(self):
         pass

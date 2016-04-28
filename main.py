@@ -35,11 +35,11 @@ def main():
 
 
     while not torrent.is_download_finished():
-        print(
-            'Downloading... Writers: {} Readers: {}'.format(
-                len(readers), len(writers)
-            )
-        )
+        # print(
+        #     'Downloading... Writers: {} Readers: {}'.format(
+        #         len(readers), len(writers)
+        #     )
+        # )
 
         to_read, to_write, errors = select.select(readers, writers, readers)
 
