@@ -8,6 +8,9 @@ from torrent import Torrent
 
 
 class Peer(object):
+    MAX_INFLIGHT_REQUESTS = 5
+    MAX_OUTBOX_REQUESTS = 5
+
     def __init__(self, torrent : Torrent, peer_info : (str, int)):
         self.torrent = torrent
         self.peer_info = peer_info
@@ -18,18 +21,20 @@ class Peer(object):
 
         self.state = None
         # THEM
-        self.is_chocking = True
+        self.is_choking = True
         self.is_interested = False
 
         # ME
         self.am_interested = False
-        self.am_chocking = True
+        self.am_choking = True
 
         self.outbound_messages = []
 
         self.pieces = BitArray(bin='0' * self.torrent.num_pieces)
 
         self.recieved_data_buffer = b''
+
+        self.inflight_requests = 0
 
 
     def is_handshake_valid(self, handshake : bytes, resp : bytes):
@@ -62,23 +67,37 @@ class Peer(object):
         else:
             print("{} connected successfully".format(self.peer_info))
             self.is_connected = True
+            self.am_interested = True
+            self.outbound_messages.append(
+                MessageParser.encode_msg('interested')
+            )
 
         self.recieved_data_buffer = resp[68:]
         self.process_read_buffer()
 
+    def enqueue_piece_requests(self):
+        while len(self.outbound_messages) < self.MAX_OUTBOX_REQUESTS:
+            if self.am_interested and not self.is_choking:
+                req = self.torrent.get_next_request(self.pieces)
+
+                if not req: return
+
+                index, begin, length = req
+                payload = struct.pack('>III', index, begin, length)
+                req_msg = MessageParser.encode_msg('request', payload)
+                self.outbound_messages.append(req_msg)
+            else:
+                return
 
     def fileno(self):
         if not self.sock:
             raise Exception("TCP connection with peer has not been established")
         return self.sock.fileno()
 
-
-
-        pass
-
-
     def read(self):
         self.recieved_data_buffer += self.sock.recv(2**15)
+        # print('buf ', self.recieved_data_buffer)
+        # print('reqs ', self.inflight_requests)
         self.process_read_buffer()
 
     def process_read_buffer(self):
@@ -98,20 +117,26 @@ class Peer(object):
             )
 
             self.recieved_data_buffer = self.recieved_data_buffer[packet_length:]
-            print('buffer is: ', self.recieved_data_buffer)
+            if message.name != 'piece':
+                print(message)
+            else:
+                print("We got a piece of our file!!!")
+            # print('buffer is: ', self.recieved_data_buffer)
 
             # Msg ID 0
             if message.name == 'choke':
-                self.is_chocking = True
+                self.is_choking = True
 
             # Msg ID 1
             if message.name == 'unchoke':
-                self.is_chocking = False
+                self.is_choking = False
 
             # Msg ID 2
             if message.name == 'interested':
                 # TODO: send unchoke message
-                pass
+                self.outbound_messages.append(
+                    MessageParser.encode_msg('unchoke')
+                )
 
             # Msg ID 3
             if message.name == 'not_interested':
@@ -121,15 +146,6 @@ class Peer(object):
             if message.name == 'have':
                 have_piece = struct.unpack('>I', message.payload)[0]
                 self.pieces[have_piece] = True
-                if self.am_interested and not self.am_chocking:
-                    req = self.torrent.get_next_request(self.pieces)
-                    if not req:
-                        return
-
-                    index, begin, length = req
-                    payload = struct.pack('>III', index, begin, length)
-                    req_msg = MessageParser.encode_msg('request', payload)
-                    self.outbound_messages.append(req_msg)
 
             # Msg ID 5
             if message.name == 'bitfield':
@@ -140,14 +156,21 @@ class Peer(object):
 
             # Msg ID 6
             if message.name == 'request':
-                if not self.am_chocking:
+                if not self.am_choking:
                     # Find piece from our downloaded torrent and send it back
                     pass
 
             # Msg ID 7
             if message.name == 'piece':
+                self.inflight_requests -= 1
                 index, begin = struct.unpack('>I I', message.payload[:8])
-                print('Got piece, need to write it to file...')
+                print('Piece index: ', index)
+                print(message.payload[:50])
+
+        # print('outbox: ', self.outbound_messages)
 
     def write(self):
-        pass
+        self.enqueue_piece_requests()
+        while self.outbound_messages:
+            msg = self.outbound_messages.pop(0)
+            self.sock.sendall(msg)

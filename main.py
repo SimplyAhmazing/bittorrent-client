@@ -1,4 +1,5 @@
 from pprint import pprint as pp
+from copy import deepcopy
 import select
 
 from torrent import Torrent
@@ -10,8 +11,15 @@ def main():
 
     torrent = Torrent('data/ubuntu.torrent')
 
-    print(torrent.num_pieces)
-    print(torrent.get_download_length())
+    td = deepcopy(torrent.torrent_file_dict)
+
+    td[b'info'][b'pieces'] = '20 byte pieces hashes go here...'
+
+    pp(td)
+    print('Number of pieces in the file:', torrent.num_pieces)
+    print('Size of download in bytes: ', torrent.get_download_length())
+
+    input()
 
     peers_info = PeersGetter(torrent).parse_peers()
 

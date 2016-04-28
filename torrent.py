@@ -17,7 +17,6 @@ class Torrent(object):
         self.torrent_file_path = torrent_file_path
         self.torrent_file_dict = self.parse_file()
 
-        print(self.torrent_file_dict)
 
         self.piece_length = int(
             self.torrent_file_dict.get(b'info', {}).get(b'piece length', 0)
